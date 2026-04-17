@@ -1,14 +1,13 @@
 {
-  "calibration_time": "2026-04-16",
+  "calibration_time": "2026-04-17",
+  "per_motor": {
+    "lf": 0.25,
+    "lb": 1.0,
+    "rf": 0.25,
+    "rb": 1.0
+  },
   "differential": {
     "correction_left": 1.0,
     "correction_right": 1.0
-  },
-  "per_motor": {
-    "lf": 1.0,
-    "rf": 1.0,
-    "lb": 1.8,
-    "rb": 3.6
-  },
-  "note": "LB/RB ratio 1.065 after RB polarity fix. RB boosted 3.4->3.6 to match LB"
+  }
 }

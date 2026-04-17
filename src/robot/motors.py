@@ -4,9 +4,7 @@ from common.hardware import *
 import json, os
 from robot.PCA9685 import PCA9685
 
-PCA9685_ADDR = 0x40
 PWM_FREQ = 50
-_MAX_PWM = 4095
 
 def _load_motor_corrections():
     path = '/home/vijay/lafvin_robot_plop/agents/memory/motor_calibration.json'
@@ -14,7 +12,6 @@ def _load_motor_corrections():
     if os.path.exists(path):
         with open(path) as f:
             data = json.load(f)
-    per_def = (1.0, 1.0, 1.0, 1.0)
     diff = data.get('differential', {})
     pm = data.get('per_motor', {})
     DIFF_L = diff.get('correction_left', 1.0)
@@ -34,7 +31,6 @@ class Motors:
         if pwm is None:
             pwm = PCA9685()
         self.pwm = pwm
-        self._pwm_freq = PWM_FREQ
         self._apply_corrections = True
         self.pwm.setPWMFreq(PWM_FREQ)
 
@@ -49,22 +45,22 @@ class Motors:
             self.pwm.setPWM(ch, 0, 0)
 
     def _set_motor(self, channels, pwm_val):
-        ch1, ch2 = channels
-        if pwm_val < 0:
-            self.pwm.setPWM(ch2, 0, 0)
-            self.pwm.setPWM(ch1, 0, abs(pwm_val))
+        pwm_ch, gnd_ch = channels
+        if pwm_val >= 0:
+            self.pwm.setPWM(gnd_ch, 0, 0)
+            self.pwm.setPWM(pwm_ch, 0, abs(pwm_val))
         else:
-            self.pwm.setPWM(ch1, 0, 0)
-            self.pwm.setPWM(ch2, 0, abs(pwm_val))
+            self.pwm.setPWM(pwm_ch, 0, 0)
+            self.pwm.setPWM(gnd_ch, 0, abs(pwm_val))
 
     def set_motor_model(self, lf, rf, lb, rb):
         self.stop()
         if self._apply_corrections:
             lf, rf, lb, rb = self._apply_diff_correction(lf, rf, lb, rb)
-        self._set_motor((0, 1), lf)
-        self._set_motor((3, 2), lb)
-        self._set_motor((6, 7), rf)
-        self._set_motor((4, 5), rb)
+        self._set_motor((1, 0), lf)
+        self._set_motor((2, 3), -lb)
+        self._set_motor((7, 6), -rf)
+        self._set_motor((5, 4), -rb)
 
     def _apply_diff_correction(self, lf, rf, lb, rb):
         lf = int(lf * PER_LF * DIFF_L)
