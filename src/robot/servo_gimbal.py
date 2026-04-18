@@ -1,7 +1,7 @@
 import sys, time
-sys.path.insert(0, '/home/vijay/lafvin-robot/src')
+sys.path.insert(0, '/home/vijay/lafvin_robot_plop/src')
 from common.hardware import SERVO_H_CHANNEL, SERVO_V_CHANNEL, SERVO_H_MIN, SERVO_H_MAX
-from common.hardware import SERVO_V_MIN, SERVO_V_MAX
+from common.hardware import SERVO_V_MIN, SERVO_V_MAX, SERVO_V_CENTER
 
 try:
     import smbus2 as smbus
@@ -33,9 +33,6 @@ class PCA9685:
             pass
 
     def setServoPulse(self, channel, us):
-        # Direct calculation: period=20ms, 4096 ticks full range
-        # 0 = 0 ticks, 4095 = full on
-        # For servo: 500-2500us maps to ~102-512 ticks
         ticks = int(us * 4096 / 20000)
         ticks = min(max(ticks, 0), 4095)
         self.setPWM(channel, 0, ticks)
@@ -68,11 +65,14 @@ class ServoGimbal:
             self.pwm.setServoPulse(SERVO_H_CHANNEL, us)
         if v is not None:
             self.v = v
-            us = SERVO_V_MIN + int((v / 180.0) * (SERVO_V_MAX - SERVO_V_MIN))
+            # V is inverted: 500us = up, 2500us = down
+            # SERVO_V_CENTER = 1575us is the level/forward position
+            us = SERVO_V_CENTER + int(((v - 90) / 90.0) * (SERVO_V_CENTER - SERVO_V_MIN))
+            us = min(max(us, SERVO_V_MIN), SERVO_V_MAX)
             self.pwm.setServoPulse(SERVO_V_CHANNEL, us)
 
     def center(self):
-        self.set_position(h=90, v=90)
+        self.set_position(h=165, v=90)
 
 _gimbal = None
 def get_gimbal():
