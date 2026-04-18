@@ -39,12 +39,12 @@ MOTOR_MIN = -4095
 # Servo Settings
 # ============================================================================
 SERVO_H_CHANNEL = 8
-SERVO_H_MIN = 500
-SERVO_H_MAX = 2300
+SERVO_H_MIN = 700
+SERVO_H_MAX = 2100
 SERVO_H_CENTER = 105
 SERVO_V_CHANNEL = 9
 SERVO_V_MIN = 1000
-SERVO_V_MAX = 2200
+SERVO_V_MAX = 2000
 SERVO_V_CENTER = 1600
 SERVO_MIN_ANGLE = 0
 SERVO_MAX_ANGLE = 180

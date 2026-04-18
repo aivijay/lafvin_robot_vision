@@ -1,5 +1,5 @@
 # PCA9685 PWM Driver (I2C)
-# Adapted from LAFVIN stock code
+# Fixed: always fresh instance, software reset on every init
 
 import smbus
 import math
@@ -25,7 +25,25 @@ class PCA9685:
         self.bus = smbus.SMBus(1)  # I2C bus 1 on Pi
         self.address = address
         self.debug = debug
-        self.write(self.__MODE1, 0x00)
+        self._reset()
+
+    def _reset(self):
+        """Hard reset of PCA9685 - clears any lockup state."""
+        try:
+            # Software reset
+            self.bus.write_byte_data(self.address, self.__MODE1, 0x06)
+            time.sleep(0.15)
+            # Wake up with auto-increment
+            self.bus.write_byte_data(self.address, self.__MODE1, 0x21)
+            time.sleep(0.01)
+            # Set 50Hz for servos
+            self.bus.write_byte_data(self.address, self.__PRESCALE, 0x79)
+            time.sleep(0.01)
+            # Restart
+            self.bus.write_byte_data(self.address, self.__MODE1, 0x21)
+            time.sleep(0.01)
+        except Exception as e:
+            print(f"PCA9685 reset error: {e}")
 
     def write(self, reg, value):
         if self.debug:
