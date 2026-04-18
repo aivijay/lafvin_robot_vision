@@ -1,9 +1,8 @@
 {
-  "calibration_time": "2026-04-17",
   "per_motor": {
-    "lf": 0.25,
+    "lf": 1.0,
     "lb": 1.0,
-    "rf": 0.25,
+    "rf": 1.0,
     "rb": 1.0
   },
   "differential": {

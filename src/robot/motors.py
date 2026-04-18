@@ -58,9 +58,9 @@ class Motors:
         if self._apply_corrections:
             lf, rf, lb, rb = self._apply_diff_correction(lf, rf, lb, rb)
         self._set_motor((1, 0), lf)
-        self._set_motor((2, 3), -lb)
+        self._set_motor((2, 3), lb)
         self._set_motor((7, 6), -rf)
-        self._set_motor((5, 4), -rb)
+        self._set_motor((5, 4), rb)
 
     def _apply_diff_correction(self, lf, rf, lb, rb):
         lf = int(lf * PER_LF * DIFF_L)
