@@ -20,7 +20,7 @@ class ObstacleMonitor:
     def __init__(self):
         self._ultrasonic = get_ultrasonic()
         self._distance = 999.0       # cm
-        self._state = "normal"       # normal | caution | danger
+        self._state = "normal"        # normal | caution | danger
         self._running = False
         self._thread = None
         self._lock = threading.Lock()
@@ -46,15 +46,26 @@ class ObstacleMonitor:
             return self._state == "normal"
 
     def start(self):
-        """Launch the background polling thread. Does one immediate read first."""
+        """
+        Launch the background polling thread.
+        HC-SR04 often returns -1 on the first 1-2 triggers after power-on,
+        so we prime with 2 silent reads before starting the loop.
+        """
         if self._running:
             return
-        self._running = True
-        # Prime with a real reading so get_distance() is never stale after start()
-        d = self._read_distance()
+
+        # Prime the sensor before the thread even exists
+        time.sleep(0.050)
+        self._read_distance()        # warm-up (discard)
+        time.sleep(0.110)
+        d = self._read_distance()     # first real reading
+
+        # Thread-safe write before _running=True so the loop sees it immediately
         with self._lock:
             self._distance = d
             self._state = self._compute_state(d)
+
+        self._running = True
         self._thread = threading.Thread(target=self._poll_loop, daemon=True)
         self._thread.start()
         print("[ObstacleMonitor] started (polls every 200ms)")
