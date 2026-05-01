@@ -79,8 +79,9 @@ class ObstacleMonitor:
     # ── Internals ──────────────────────────────────────────────
 
     def _compute_state(self, d):
+        # -1 means sensor failure — treat as danger (safe default, don't move)
         if d < 0:
-            return "normal"
+            return "danger"
         if d < self.DANGER_CM:
             return "danger"
         if d < self.CAUTION_CM:
