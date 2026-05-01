@@ -20,7 +20,7 @@ class ObstacleMonitor:
     def __init__(self):
         self._ultrasonic = get_ultrasonic()
         self._distance = 999.0       # cm
-        self._state = "normal"        # normal | caution | danger
+        self._state = "normal"       # normal | caution | danger
         self._running = False
         self._thread = None
         self._lock = threading.Lock()
@@ -28,7 +28,7 @@ class ObstacleMonitor:
     # ── Public API ──────────────────────────────────────────────
 
     def get_distance(self):
-        """Latest distance in cm. -1 means no reading."""
+        """Latest distance in cm. -1 means no valid reading."""
         with self._lock:
             return self._distance
 
@@ -40,19 +40,24 @@ class ObstacleMonitor:
     def can_move_forward(self):
         """
         Returns True only if the path ahead is clear.
-        Use this in your agent main loop before commanding movement.
+        Use this in your agent main loop before commanding forward movement.
         """
         with self._lock:
             return self._state == "normal"
 
     def start(self):
-        """Launch the background polling thread."""
+        """Launch the background polling thread. Does one immediate read first."""
         if self._running:
             return
         self._running = True
+        # Prime with a real reading so get_distance() is never stale after start()
+        d = self._read_distance()
+        with self._lock:
+            self._distance = d
+            self._state = self._compute_state(d)
         self._thread = threading.Thread(target=self._poll_loop, daemon=True)
         self._thread.start()
-        print(f"[ObstacleMonitor] started (polls every 200ms)")
+        print("[ObstacleMonitor] started (polls every 200ms)")
 
     def stop(self):
         """Stop polling and join the thread."""
@@ -63,19 +68,21 @@ class ObstacleMonitor:
 
     # ── Internals ──────────────────────────────────────────────
 
+    def _compute_state(self, d):
+        if d < 0:
+            return "normal"
+        if d < self.DANGER_CM:
+            return "danger"
+        if d < self.CAUTION_CM:
+            return "caution"
+        return "normal"
+
     def _poll_loop(self):
         while self._running:
             d = self._read_distance()
             with self._lock:
                 self._distance = d
-                if d < 0:
-                    self._state = "normal"       # no reading → optimistic
-                elif d < self.DANGER_CM:
-                    self._state = "danger"
-                elif d < self.CAUTION_CM:
-                    self._state = "caution"
-                else:
-                    self._state = "normal"
+                self._state = self._compute_state(d)
             time.sleep(0.200)
 
     def _read_distance(self):
@@ -84,7 +91,7 @@ class ObstacleMonitor:
             mm = self._ultrasonic.read()
             if mm < 0:
                 return -1.0
-            return round(mm / 10.0, 1)   # mm → cm
+            return round(mm / 10.0, 1)
         except Exception:
             return -1.0
 
