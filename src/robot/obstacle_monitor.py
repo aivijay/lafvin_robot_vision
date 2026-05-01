@@ -20,7 +20,7 @@ class ObstacleMonitor:
     def __init__(self):
         self._ultrasonic = get_ultrasonic()
         self._distance = 999.0       # cm
-        self._state = "normal"        # normal | caution | danger
+        self._state = "normal"       # normal | caution | danger
         self._running = False
         self._thread = None
         self._lock = threading.Lock()
@@ -48,19 +48,18 @@ class ObstacleMonitor:
     def start(self):
         """
         Launch the background polling thread.
-        HC-SR04 often returns -1 on the first 1-2 triggers after power-on,
-        so we prime with 2 silent reads before starting the loop.
+        HC-SR04 needs 2 trigger cycles to settle after power-on;
+        we do those warm-up reads here before the thread starts.
         """
         if self._running:
             return
 
-        # Prime the sensor before the thread even exists
+        # Prime reads — first triggers the sensor, second gives a real value
         time.sleep(0.050)
-        self._read_distance()        # warm-up (discard)
+        self._read_distance()        # discard (trigger only)
         time.sleep(0.110)
-        d = self._read_distance()     # first real reading
+        d = self._read_distance()   # first real reading
 
-        # Thread-safe write before _running=True so the loop sees it immediately
         with self._lock:
             self._distance = d
             self._state = self._compute_state(d)
@@ -89,12 +88,26 @@ class ObstacleMonitor:
         return "normal"
 
     def _poll_loop(self):
+        # Small settle gap after the start() warm-up reads end
+        time.sleep(0.050)
+
         while self._running:
-            d = self._read_distance()
+            d = self._read_retry()
             with self._lock:
                 self._distance = d
                 self._state = self._compute_state(d)
             time.sleep(0.200)
+
+    def _read_retry(self):
+        """
+        Read distance, retrying once on -1.  HC-SR04 sometimes misses
+        the echo on the very first trigger after idle or power-on.
+        """
+        d = self._read_distance()
+        if d < 0:
+            time.sleep(0.060)
+            d = self._read_distance()
+        return d
 
     def _read_distance(self):
         """Single blocking read (~60ms max). Returns distance in cm or -1 on error."""
