@@ -30,4 +30,4 @@ class ServoGimbal:
             self.pwm.setServoPulse(SERVO_V_CHANNEL, us)
 
     def center(self):
-        self.set_position(h=90, v=90)
+        self.set_position(h=105, v=105)
