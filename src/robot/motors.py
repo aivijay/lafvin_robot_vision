@@ -1,13 +1,16 @@
 import sys
-sys.path.insert(0, '/home/vijay/lafvin_robot_plop/src/common')
+sys.path.insert(0, '/home/vijay/lafvin-robot/src/common')
 from common.hardware import *
 import json, os
 from robot.PCA9685 import PCA9685
 
 PWM_FREQ = 50
+# Minimum PWM to keep motors spinning reliably (especially on rug)
+MIN_PWM = 1000
+
 
 def _load_motor_corrections():
-    path = '/home/vijay/lafvin_robot_plop/agents/memory/motor_calibration.json'
+    path = '/home/vijay/lafvin-robot/agents/memory/motor_calibration.json'
     data = {}
     if os.path.exists(path):
         with open(path) as f:
@@ -22,7 +25,9 @@ def _load_motor_corrections():
     rb = pm.get('rb', 1.0)
     return (DIFF_L, DIFF_R), (lf, rf, lb, rb)
 
+
 (DIFF_L, DIFF_R), (PER_LF, PER_RF, PER_LB, PER_RB) = _load_motor_corrections()
+
 
 class Motors:
     _instance = None
@@ -69,7 +74,45 @@ class Motors:
         rb = int(rb * PER_RB * DIFF_R)
         return lf, rf, lb, rb
 
-    def forward(self, speed): self.set_motor_model(speed, speed, speed, speed)
-    def backward(self, speed): self.set_motor_model(-speed, -speed, -speed, -speed)
-    def spin_left(self, speed): self.set_motor_model(speed, speed, -speed, -speed)
-    def spin_right(self, speed): self.set_motor_model(-speed, -speed, speed, speed)
+    def _enforce_min(self, speed):
+        if abs(speed) < MIN_PWM and speed != 0:
+            speed = MIN_PWM if speed > 0 else -MIN_PWM
+        return speed
+
+    def forward(self, speed):
+        speed = self._enforce_min(speed)
+        self.set_motor_model(speed, speed, speed, speed)
+
+    def backward(self, speed):
+        speed = self._enforce_min(speed)
+        self.set_motor_model(-speed, -speed, -speed, -speed)
+
+    def spin_left(self, speed):
+        speed = self._enforce_min(speed)
+        self.set_motor_model(-speed, speed, -speed, speed)
+
+    def spin_right(self, speed):
+        speed = self._enforce_min(speed)
+        self.set_motor_model(speed, -speed, speed, -speed)
+
+    def strafe_left(self, speed):
+        """Strafe toward robot's left using Pattern B (+151mm drift → corrected to ~88mm)."""
+        speed = self._enforce_min(speed)
+        # Pattern B: (-PWM, +PWM, +PWM, -PWM)
+        self.set_motor_model(-speed, speed, speed, -speed)
+
+    def strafe_right(self, speed):
+        """Strafe toward robot's right using Pattern A (+306mm drift → high but acceptable)."""
+        speed = self._enforce_min(speed)
+        # Pattern A: (+PWM, -PWM, -PWM, +PWM)
+        self.set_motor_model(speed, -speed, -speed, speed)
+
+
+_motors = None
+
+
+def get_motors():
+    global _motors
+    if _motors is None:
+        _motors = Motors()
+    return _motors
