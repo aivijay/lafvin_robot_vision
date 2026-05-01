@@ -3,6 +3,11 @@
 import sys, time
 sys.path.insert(0, '/home/vijay/lafvin_robot_plop/src')
 
+# Force reload to pick up latest code
+import importlib
+import robot.servo_gimbal
+importlib.reload(robot.servo_gimbal)
+
 from robot.servo_gimbal import ServoGimbal
 
 g = ServoGimbal()
@@ -15,8 +20,8 @@ print("  H+  = increase horizontal angle (pan left)")
 print("  H-  = decrease horizontal angle (pan right)")
 print("  V+  = increase vertical angle (tilt up)")
 print("  V-  = decrease vertical angle (tilt down)")
-print("  C   = center (H=90, V=90)")
-print("  Q   = quit and save")
+print("  C   = center (H=105, V=105)")
+print("  Q   = quit")
 print()
 
 while True:
