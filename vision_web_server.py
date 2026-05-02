@@ -26,14 +26,19 @@ import cv2
 import numpy as np
 
 # ── Local imports ────────────────────────────────────────────────────────────
+import sys
+import traceback
 try:
     from robot.motors import get_motors
     from robot.obstacle_monitor import get_obstacle_monitor
     from robot.battery import BatteryMonitor
-    from robot.servo_gimbal import get_gimbal
+    from robot.servo_gimbal import ServoGimbal
     HAS_ROBOT = True
-except ImportError:
+    print("Robot hardware loaded OK", file=sys.stderr)
+except ImportError as e:
     HAS_ROBOT = False
+    print("Robot hardware NOT available:", e, file=sys.stderr)
+    traceback.print_exc(file=sys.stderr)
 
 # ── FastAPI Setup ────────────────────────────────────────────────────────────
 
@@ -84,14 +89,15 @@ FRAME_PATH = "/tmp/vision_frame.jpg"
 MJPEG_FIFO = "/tmp/mjpeg_fifo"
 
 def capture_frame(path=FRAME_PATH):
+    """Use the latest MJPEG frame instead of spawning rpicam-still (camera already in use by rpicam-vid)."""
+    with _frame_lock:
+        jpeg = _latest_frame_jpeg
+    if jpeg is None:
+        return False
     try:
-        subprocess.run(
-            ["rpicam-still", "-o", path,
-             "--width", "640", "--height", "480",
-             "--nopreview", "-t", "1"],
-            capture_output=True, timeout=5
-        )
-        return os.path.exists(path)
+        with open(path, "wb") as f:
+            f.write(jpeg)
+        return True
     except Exception:
         return False
 
@@ -158,11 +164,15 @@ def _start_mjpeg_loop():
     ]
     proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     buf = b""
+    frame_count = 0
+    print("[MJPEG] Starting rpicam-vid...", flush=True)
     while _mjpeg_running:
         try:
             with open(fifo, "rb") as f:
                 chunk = f.read(8192)
             if not chunk:
+                if frame_count % 100 == 0:
+                    print("[MJPEG] waiting for data, frames so far:", frame_count, flush=True)
                 time.sleep(0.01)
                 continue
             buf += chunk
@@ -176,8 +186,13 @@ def _start_mjpeg_loop():
                 buf = buf[end+2:]
                 with _frame_lock:
                     _latest_frame_jpeg = jpeg
-        except Exception:
+                frame_count += 1
+                if frame_count % 30 == 0:
+                    print(f"[MJPEG] frames: {frame_count}, buf: {len(buf)}", flush=True)
+        except Exception as e:
+            print(f"[MJPEG] Exception: {e}", flush=True)
             break
+    print(f"[MJPEG] exiting after {frame_count} frames", flush=True)
     proc.terminate()
 
 def start_mjpeg():
@@ -263,7 +278,10 @@ def control(cmd: MotorCommand):
     method = getattr(motors, cmd.action, None)
     if method is None:
         raise HTTPException(400, f"Unknown action: {cmd.action}")
-    method(cmd.speed or 1100)
+    if cmd.action == "stop":
+        method()
+    else:
+        method(cmd.speed or 1100)
     return {"ok": True, "action": cmd.action, "speed": cmd.speed}
 
 @app.get("/api/history")
