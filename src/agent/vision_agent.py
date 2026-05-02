@@ -24,7 +24,7 @@ import requests
 # Local imports
 from robot.motors import get_motors
 from robot.obstacle_monitor import get_obstacle_monitor
-from robot.servo_gimbal import get_gimbal
+from robot.servo_gimbal import ServoGimbal
 
 
 # ── Config ─────────────────────────────────────────────────────────────────
@@ -242,7 +242,7 @@ def run_vision_agent():
     print("[VisionAgent] Starting...")
     motors = get_motors()
     obstacle = get_obstacle_monitor()
-    gimbal = get_gimbal()
+    gimbal = ServoGimbal()
 
     # Ensure gimbal is level
     try:
