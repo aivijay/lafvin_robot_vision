@@ -155,6 +155,14 @@ def _start_mjpeg_loop():
     fifo = Path(MJPEG_FIFO)
     fifo.unlink(missing_ok=True)
     os.mkfifo(fifo)
+
+    # FIX: Open FIFO for reading BEFORE spawning rpicam.
+    # Otherwise rpicam opens write end first, finds no reader, gets SIGPIPE, dies.
+    fifo_fd = os.open(fifo, os.O_RDONLY)
+    # NOTE: Use os.read() directly on the raw FD — fdopen() buffered reads
+    # require a minimum byte threshold before returning, which can cause hangs
+    # with slow FIFO data. Raw os.read() returns immediately when data is available.
+
     cmd = [
         "rpicam-vid",
         "--width", "640", "--height", "480",
@@ -168,8 +176,7 @@ def _start_mjpeg_loop():
     print("[MJPEG] Starting rpicam-vid...", flush=True)
     while _mjpeg_running:
         try:
-            with open(fifo, "rb") as f:
-                chunk = f.read(8192)
+            chunk = os.read(fifo_fd, 65536)
             if not chunk:
                 if frame_count % 100 == 0:
                     print("[MJPEG] waiting for data, frames so far:", frame_count, flush=True)
@@ -194,6 +201,10 @@ def _start_mjpeg_loop():
             break
     print(f"[MJPEG] exiting after {frame_count} frames", flush=True)
     proc.terminate()
+    try:
+        os.close(fifo_fd)
+    except Exception:
+        pass
 
 def start_mjpeg():
     global _mjpeg_running, _mjpeg_thread
@@ -259,6 +270,12 @@ def sensors():
             "grid": _latest_analysis.get("grid", [[128]*3]*3),
             "blobs": _latest_analysis.get("blobs", []),
         })
+
+@app.get("/api/ultrasonic")
+def ultrasonic():
+    """Standalone ultrasonic reading for layered-sensing agents."""
+    with _frame_lock:
+        return JSONResponse({"distance_cm": _latest_analysis.get("ultrasonic_cm", -1)})
 
 @app.get("/api/vision/frame")
 def vision_frame():
