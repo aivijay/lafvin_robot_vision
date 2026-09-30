@@ -13,17 +13,38 @@
 ## Architecture
 
 ```
-lafvin_agent.py     # Main entry point
+lafvin_robot_vision/
+├── lafvin_agent.py              # Main entry point
+├── motor_calibrate.py          # Motor calibration utility
+├── quick_calibrate.py           # Quick calibration
+├── debug_dashboard.py           # Web debug dashboard
+├── debug_battery.py             # Battery debug
+├── debug_state.py               # State debug
 ├── src/
-│   ├── robot/
-│   │   ├── motors.py       # 4-motor drive via PCA9685
-│   │   ├── ultrasonic.py   # HC-SR04 + servo gimbal
-│   │   ├── camera.py       # MJPEG stream via rpicam-vid
-│   │   └── reflex.py       # Safety reflexes
 │   ├── agent/
-│   │   └── brain.py        # LLM decision making
+│   │   ├── brain.py             # LLM decision making (Ollama)
+│   │   ├── depth_vision_agent.py
+│   │   └── vision_agent.py
+│   ├── robot/
+│   │   ├── motors.py            # 4-motor drive via PCA9685
+│   │   ├── ultrasonic.py        # HC-SR04 + servo gimbal
+│   │   ├── camera.py           # MJPEG stream via rpicam-vid
+│   │   ├── reflex.py           # Safety reflexes
+│   │   ├── battery.py
+│   │   ├── line_tracking.py
+│   │   ├── obstacle_monitor.py
+│   │   ├── odometry.py
+│   │   └── servo_gimbal.py
+│   ├── memory/
+│   │   └── robot_memory.json    # Persistent memory
 │   └── common/
-│       └── hardware.py      # Pin configuration
+│       └── hardware.py          # Pin configuration
+├── agents/
+│   └── memory/
+│       ├── motor_calibration.json
+│       └── ultrasonic_calibration.json
+├── docs/                        # Research and research notes
+└── tests/
 ```
 
 ## Quick Start
@@ -48,6 +69,7 @@ python3 lafvin_agent.py --autonomous --duration 60
 - **Safety reflexes**: Obstacle avoidance, edge detection, stuck escape
 - **LLM brain**: Local Ollama for autonomous decision making
 - **Persistent memory**: Robot remembers experiences across sessions
+- **Web dashboard**: Real-time debug at `http://localhost:9000`
 
 ## Pinout
 
@@ -62,3 +84,12 @@ python3 lafvin_agent.py --autonomous --duration 60
 | Servo H (pan) | PCA9685 ch 8 |
 | Servo V (tilt) | PCA9685 ch 9 |
 | Motors | PCA9685 channels 0-7 |
+
+## Tech Stack
+
+- Python 3
+- PCA9685 (I2C PWM)
+- rpicam-vid (camera)
+- Ollama (LLM)
+- FastAPI (debug dashboard)
+- lgpio / RPi.GPIO
